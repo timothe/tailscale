@@ -1,0 +1,6 @@
+infra/gcp/terraform.tfvars
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+.DS_Store

@@ -1,0 +1,5 @@
+project_id  = "MY_PROJECT_ID"
+region      = "us-east1"
+zone        = "us-east1-b"
+ts_authkey  = "tskey-REDACTED"
+ts_hostname = "ts-router"
