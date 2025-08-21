@@ -24,3 +24,9 @@ variable "ts_hostname" {
   description = "Hostname for the Tailscale node"
   default     = "ts-router"
 }
+
+variable "ts_svc_hostname" {
+  type        = string
+  description = "Hostname for the service VM"
+  default     = "service-host"
+}

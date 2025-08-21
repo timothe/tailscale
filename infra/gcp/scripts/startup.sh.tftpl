@@ -9,9 +9,9 @@ HOSTNAME="${hostname}"
 # Base packages
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
-apt-get install -y curl gnupg lsb-release python3 iproute2 iptables
+apt-get install -y curl gnupg lsb-release iproute2 iptables
 
-# Install Tailscale
+# Install Tailscale and set hostname
 curl -fsSL https://tailscale.com/install.sh | sh
 hostnamectl set-hostname "$HOSTNAME"
 
@@ -25,7 +25,7 @@ sysctl --system
 
 # SNAT traffic from Tailnet into VPC so replies work reliably
 IFACE="$(ip route show default | awk '/default/ {print $5}' || true)"
-iptables -t nat -A POSTROUTING -o "$IFACE" -j MASQUERADE
+iptables -t nat -A POSTROUTING -o "$IFACE" -j MASQUERADE || true
 
 # Start Tailscale with SSH and subnet routing
 TS_AUTHKEY="$TS_AUTHKEY" tailscale up \
@@ -39,40 +39,3 @@ if ! id -u tsadmin >/dev/null 2>&1; then
   usermod -aG sudo tsadmin
   chsh -s /bin/bash tsadmin
 fi
-
-# Choose a stable private IP inside the VPC CIDR for a dummy host
-DUMMY_IP="$(python3 - <<'PY'
-import ipaddress
-cidr = "${vpc_cidr}"
-net = ipaddress.ip_network(cidr, strict=False)
-hosts = list(net.hosts())
-pick = hosts[9] if len(hosts) > 10 else hosts[0]
-print(str(pick))
-PY
-)"
-echo "$DUMMY_IP" >/var/log/ts-router-dummy-ip.log
-
-# Create dummy interface with that IP and bind a tiny HTTP server to it
-modprobe dummy || true
-ip link add dummy0 type dummy || true
-ip addr add "$DUMMY_IP/32" dev dummy0 || true
-ip link set dummy0 up
-
-cat >/etc/systemd/system/dummy-http.service <<EOF
-[Unit]
-Description=Dummy HTTP service on $DUMMY_IP:8080
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Environment=DUMMY_IP=$DUMMY_IP
-ExecStart=/usr/bin/python3 -m http.server 8080 --bind $DUMMY_IP
-Restart=always
-RestartSec=2
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-systemctl enable --now dummy-http.service

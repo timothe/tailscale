@@ -1,0 +1,25 @@
+flowchart LR
+ subgraph Tailnet["Tailnet Control Plane"]
+  end
+ subgraph GCP["Default VPC / default subnetwork (region)"]
+    direction LR
+        TSNIC["ts-router NIC\n10.x.y.z"]
+        SVC["service VM\n10.x.y.10:8080"]
+  end
+ subgraph HomeLAN["Home LAN 192.168.4.0/24"]
+        IoT1["Router 192.168.4.1"]
+        IoT2["Fire TV 192.168.4.79"]
+  end
+    Laptop["My Laptop (Tailscale client)"] --- Tailnet
+    TSRouter["ts-router - GCP VM
+Tailscale SSH + Subnet Router"] --- Tailnet
+    Nas["Nasputin - optional, home subnet router"] --- Tailnet & HomeLAN
+    TSNIC --- SVC
+    Laptop == Tailscale SSH ==> TSRouter
+    Laptop == "Route default-subnet-CIDR" ==> SVC
+    style IoT1 stroke:#757575,color:#757575
+    style IoT2 stroke:#757575,color:#757575
+    style Tailnet color:#000000
+    style Nas stroke:#757575,color:#757575
+    style HomeLAN stroke:#757575,color:#757575
+    linkStyle 3 stroke:#757575,fill:none

@@ -54,6 +54,37 @@ resource "google_compute_instance" "ts_router" {
   })
 }
 
+resource "google_compute_firewall" "allow_svc_8080" {
+  name    = "allow-svc-8080"
+  network = data.google_compute_network.default.self_link
+
+  allow {
+    protocol = "tcp"
+    ports    = ["8080"]
+  }
+
+  source_ranges = [data.google_compute_subnetwork.default.ip_cidr_range]
+  target_tags   = ["svc-http"]
+}
+
+resource "google_compute_instance" "svc_vm" {
+  name         = var.ts_svc_hostname
+  machine_type = "e2-micro"
+  zone         = var.zone
+  tags         = ["svc-http"]
+
+  boot_disk {
+    initialize_params { image = "debian-cloud/debian-12" }
+  }
+
+  network_interface {
+    network    = data.google_compute_network.default.self_link
+    subnetwork = data.google_compute_subnetwork.default.self_link
+  }
+
+  metadata_startup_script = templatefile("${path.module}/scripts/startup-service.sh.tftpl", {})
+}
+
 output "instance_name"        { value = google_compute_instance.ts_router.name }
 output "instance_external_ip" { value = google_compute_instance.ts_router.network_interface[0].access_config[0].nat_ip }
 output "vpc_cidr"             { value = data.google_compute_subnetwork.default.ip_cidr_range }

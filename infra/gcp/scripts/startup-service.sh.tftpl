@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -y
+apt-get install -y python3
+
+cat >/etc/systemd/system/dummy-http.service <<'EOF'
+[Unit]
+Description=Service VM HTTP on 0.0.0.0:8080
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 -m http.server 8080 --bind 0.0.0.0
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now dummy-http.service

@@ -1,15 +1,17 @@
-# Tailscale CSE Take-home: Subnet Router + Tailscale SSH on GCP (Terraform)
+# Tailscale CSE Take-home: Subnet Router + Tailscale SSH on GCP via Terraform
 
 ## What this repo demonstrates
 
 1. A personal Tailnet with:
-   * One **GCP VM** that acts as a **Tailscale device with SSH enabled**.
-   * The same VM also acts as a **subnet router** that advertises its VPC subnet to the Tailnet.
+   * One **router VM** that runs Tailscale with SSH enabled.
+   * The router VM also acts as a **subnet router** that advertises its VPC subnet to the Tailnet.
 
-2. A **private service** reachable only via the advertised subnet:
-   * The VM creates a **dummy interface** with an IP inside the VPC CIDR and serves a small HTTP endpoint there.
-   * This simulates a private host behind the subnet router without needing a second VM.
-3. 100 percent Infrastructure as Code using **Terraform**, plus a single **startup script** on the VM.
+2. A **service VM** reachable only via the advertised subnet:
+   * The service VM runs a small HTTP endpoint on port 8080 bound to its internal IP.
+   * This demonstrates full path: Tailnet → router VM → VPC subnet → service VM.
+
+3. 100 percent Infrastructure as Code using **Terraform**, with 2 startup scripts (router and service).
+
 
 > Why GCP and not my Mac or Synology:
 >
@@ -19,13 +21,15 @@
 
 ## Architecture
 
-* A MacBook laptop runs the Tailscale client and joins the Tailnet.
-* A single **GCP e2-micro** VM named `ts-router`:
+* A MacBook laptop that runs the Tailscale client and joins the Tailnet.
+* A **GCP e2-micro** VM named `ts-router`:
   * joins the Tailnet
   * enables **Tailscale SSH**
   * advertises its **VPC subnet** to the Tailnet
   * sets up Linux IP forwarding and NAT for reliable return traffic
-  * creates a dummy IP **inside the VPC CIDR** and binds a tiny HTTP server to it
+* Another **GCP e2-micro** VM named `service-host`:
+  * runs inside the same VPC subnet
+  * provides a simple HTTP server bound to its internal IP
 
 ### Diagram
 
@@ -34,8 +38,8 @@
 
 ## Cost safety
 
-* The plan uses **e2-micro** which is typically covered by Google Cloud Free Tier in certain US regions.
-* Verify eligible regions in the billing console, then run `terraform destroy` when done.
+* The plan uses **e2-micro** which is covered by Google Cloud Free Tier in certain US regions.
+* I checked the eligible regions in the billing console, then I'm making sure to run `terraform destroy` when done.
 
 ## Repo structure
 
@@ -48,9 +52,13 @@
       variables.tf
       outputs.tf
       scripts/
-        startup.sh.tftpl
+        router-startup.sh.tftpl - startup script for VM1 (Tailscale router)
+        target-startup.sh.tftpl - startup script for VM2 (simple HTTP server)
+    terraform.tfvars.example
   diagram/
+    architecture.mmd
     architecture.png
+  .gitignore
 ```
 
 ## Prerequisites
@@ -68,17 +76,13 @@
   * Prefer an Always Free eligible US region and matching zone.
   * As I'm in London, UK, I chose the us-east1 region to reduce latency.
 * `ts_authkey` (Previously generated)
-* Optional: `ts_hostname` (default `ts-router`)
+* `ts_hostname` (default `ts-router`)
 
 ## How to deploy
 
 ```bash
 cd infra/gcp
-
-# 1) Initialize
 terraform init
-
-# 2) Apply
 terraform apply
 ```
 
@@ -89,45 +93,56 @@ When the VM boots, the startup script will:
 * join your Tailnet
 * enable **Tailscale SSH**
 * advertise the VPC subnet
-* bring up a dummy IP inside that subnet and start a tiny HTTP server bound to it
+* bring up a service VM inside that subnet and start a tiny HTTP server bound to it
 
-### Approve the route
+## Demo flow
 
-Open the Tailscale Admin Console and approve the **advertised subnet** from `ts-router`.
-
-## How to test
-
-From the laptop after the route is approved:
-
-1. Confirm the Tailnet view
+1. Make sure the current device is connected to Tailscale
 
 ```bash
 tailscale status
 ```
 
-2. SSH into the VM using Tailscale SSH
+2. SSH into the VM using the Google Cloud Shell, or use:
 
 ```bash
-ssh tsadmin@ts-router    # or use the VM's Tailscale DNS name or 100.x.y.z
+gcloud compute ssh --zone "us-east1-b" "ts-router" --project "MY_PROJECT_ID"
 ```
 
-3. Reach the private dummy endpoint behind the subnet router
-   The startup script picks a stable IP **inside the VPC subnet** and binds `python3 -m http.server 8080` to it.
-   The script prints the chosen IP to `/var/log/ts-router-dummy-ip.log`.
+3. Get the syslog to authenticate Tailscale on the Subnet router
 
 ```bash
-ssh tsadmin@ts-router "cat /var/log/ts-router-dummy-ip.log"
-# Example output: 10.128.0.10
+sudo tail /var/log/syslog | grep tailscale
+```
 
-curl http://10.128.0.10:8080/
-# You should see the default Python directory listing page.
+Find and go to the link on the local browser, authenticate.
+Exit SSH! The next step will be on the local machine.
+
+3. Approve the route from the console
+
+Open the Tailscale Admin Console and approve the **advertised subnet** from `ts-router`.
+
+4. Reach the private service on the service VM from the local device
+
+Use the curl command in output after the Terraform plan.
+The IP of the service VM will be in the GCP console or by using this command:
+
+```bash
+terraform output service_vm_internal_ip
 ```
 
 If the curl works, I have proven:
 
-* Tailnet to VM via Tailscale SSH
+* Tailnet to router VM via Tailscale SSH
 * Subnet routing into the VPC
-* Private service reachable only through the advertised route
+* Private service VM reachable only through the advertised route
+
+5. (optional) Show result with a disapproved subnet
+
+* Disapprove the subnet on the Tailscale console
+* Run the curl command
+
+It should time out, which proves the service is behind the Tailscale subnet.
 
 ## How to tear down
 
