@@ -109,14 +109,22 @@ tailscale status
 gcloud compute ssh --zone "us-east1-b" "ts-router" --project "MY_PROJECT_ID"
 ```
 
-3. Get the syslog to authenticate Tailscale on the Subnet router
+3. Get the URL to authenticate Tailscale on the Subnet router
+
+Run:
 
 ```bash
-sudo tail /var/log/syslog | grep tailscale
+tailscale status
 ```
 
-Find and go to the link on the local browser, authenticate.
-Exit SSH! The next step will be on the local machine.
+It should show a message like:
+
+```bash
+Logged out.
+Log in at: https://login.tailscale.com/a/xxxxxxxxxxx
+```
+
+**Exit SSH**! The next step will be on the local machine.
 
 3. Approve the route from the console
 
@@ -124,14 +132,19 @@ Open the Tailscale Admin Console and approve the **advertised subnet** from `ts-
 
 4. Reach the private service on the service VM from the local device
 
-Use the curl command in output after the Terraform plan.
-The IP of the service VM will be in the GCP console or by using this command:
+Use the curl command in output after the Terraform plan. Something like:
+
+```bash
+curl http://10.142.x.x:8080/
+```
+
+Just in case, the IP of the service VM will be in the GCP console or by using this command:
 
 ```bash
 terraform output service_vm_internal_ip
 ```
 
-If the curl works, I have proven:
+If the curl works, we have proven the following routes:
 
 * Tailnet to router VM via Tailscale SSH
 * Subnet routing into the VPC
