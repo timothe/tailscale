@@ -41,25 +41,6 @@
 * The plan uses **e2-micro** which is covered by Google Cloud Free Tier in certain US regions.
 * I checked the eligible regions in the billing console, then I'm making sure to run `terraform destroy` when done.
 
-## Repo structure
-
-```
-/
-  README.md
-  infra/
-    gcp/
-      main.tf
-      variables.tf
-      outputs.tf
-      scripts/
-        router-startup.sh.tftpl - startup script for VM1 (Tailscale router)
-        target-startup.sh.tftpl - startup script for VM2 (simple HTTP server)
-    terraform.tfvars.example
-  diagram/
-    architecture.mmd
-    architecture.png
-  .gitignore
-```
 
 ## Prerequisites
 
@@ -77,6 +58,7 @@
   * As I'm in London, UK, I chose the us-east1 region to reduce latency.
 * `ts_authkey` (Previously generated)
 * `ts_hostname` (default `ts-router`)
+* `ts_svc_hostname` (default `service-host`)
 
 ## How to deploy
 
@@ -90,7 +72,7 @@ When the VM boots, the startup script will:
 
 * install Tailscale
 * enable IP forwarding and NAT
-* join your Tailnet
+* join my Tailnet
 * enable **Tailscale SSH**
 * advertise the VPC subnet
 * bring up a service VM inside that subnet and start a tiny HTTP server bound to it
