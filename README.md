@@ -154,9 +154,16 @@ If the curl works, we have proven the following routes:
 6. (optional) Show result with a disapproved subnet
 
 * Disapprove the subnet on the Tailscale console
-* Run the curl or SSH command
+* Run the curl command
 
-They should time out, which proves the service is behind the Tailscale subnet.
+It should time out, which proves the service is behind the Tailscale subnet.
+
+7. (optional) Show result without connecting to Tailscale
+
+* Disconnect Tailscale from the local machine
+* Run the SSH command
+
+It will fail, which proves SSH is not possible without authentication through Tailscale.
 
 
 ## How to tear down
