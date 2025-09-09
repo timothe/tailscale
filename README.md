@@ -85,6 +85,8 @@ When the VM boots, the startup script will:
 tailscale status
 ```
 
+If not, launch and connect to the tailnet.
+
 2. SSH into the VM using the Google Cloud Shell, or use:
 
 ```bash
@@ -106,13 +108,30 @@ Logged out.
 Log in at: https://login.tailscale.com/a/xxxxxxxxxxx
 ```
 
+If it doesn't, maybe Tailscale is still installing.
+Check its status with:
+```bash
+tail -f /var/log/syslog 
+```
+Once it's finished, you can try again.
+
 **Exit SSH**! The next step will be on the local machine.
 
-3. Approve the route from the console
+3. SSH to *ts-router*
+
+SSH should be possible with the tsadmin user already. Run:
+
+```bash
+ssh tsadmin@ts-router
+```
+
+This shows Tailscale SSH is live. 
+
+4. Approve the route from the console
 
 Open the Tailscale Admin Console and approve the **advertised subnet** from `ts-router`.
 
-4. Reach the private service on the service VM from the local device
+5. Reach the private service on the service VM from the local device
 
 Use the curl command in output after the Terraform plan. Something like:
 
@@ -132,12 +151,13 @@ If the curl works, we have proven the following routes:
 * Subnet routing into the VPC
 * Private service VM reachable only through the advertised route
 
-5. (optional) Show result with a disapproved subnet
+6. (optional) Show result with a disapproved subnet
 
 * Disapprove the subnet on the Tailscale console
-* Run the curl command
+* Run the curl or SSH command
 
-It should time out, which proves the service is behind the Tailscale subnet.
+They should time out, which proves the service is behind the Tailscale subnet.
+
 
 ## How to tear down
 
